@@ -39,12 +39,13 @@ class Transaction extends Model
 
         static::creating(function ($transaction) {
             if (empty($transaction->invoice_number)) {
-                $transaction->invoice_number = 'INV-' . date('Ymd') . '-' . str_pad(
-                    static::whereDate('created_at', today())->count() + 1,
-                    4,
-                    '0',
-                    STR_PAD_LEFT
-                );
+                $base = 'INV-' . date('Ymd') . '-';
+                $counter = 1;
+                do {
+                    $invoice_number = $base . str_pad($counter, 4, '0', STR_PAD_LEFT);
+                    $counter++;
+                } while (static::where('invoice_number', $invoice_number)->exists());
+                $transaction->invoice_number = $invoice_number;
             }
         });
     }

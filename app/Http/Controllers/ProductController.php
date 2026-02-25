@@ -5,9 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\Category;
 use App\Models\StockAdjustment;
+use App\Imports\ProductsImport;
+use App\Exports\ProductsExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
+use Picqer\Barcode\BarcodeGeneratorPNG;
 
 class ProductController extends Controller
 {
@@ -117,7 +121,7 @@ class ProductController extends Controller
             if ($product->image) {
                 Storage::disk('public')->delete($product->image);
             }
-            $validated['image'] = $request->file('image')->storeAs('products',$validated['slug'].'.'.$request->file('image')->getClientOriginalExtension(), 'public');
+            $validated['image'] = $request->file('image')->storeAs('products', $validated['slug'] . '.' . $request->file('image')->getClientOriginalExtension(), 'public');
         }
 
         // Prevent stock update
@@ -146,5 +150,37 @@ class ProductController extends Controller
         $product->update(['is_active' => !$product->is_active]);
 
         return back()->with('success', 'Status produk berhasil diubah!');
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls',
+        ]);
+
+        try {
+            Excel::import(new ProductsImport, $request->file('file'));
+
+            return redirect()->route('products.index')
+                ->with('success', 'Produk berhasil diimpor!');
+        } catch (\Exception $e) {
+            dd($e->getMessage());
+            return redirect()->route('products.index')
+                ->with('error', 'Gagal mengimpor produk: ' . $e->getMessage());
+        }
+    }
+
+    public function export()
+    {
+        return Excel::download(new ProductsExport(), 'products.xlsx');
+    }
+
+    public function printBarcode(Product $product)
+    {
+        $generator = new BarcodeGeneratorPNG();
+        $barcodeImage = $generator->getBarcode($product->barcode, BarcodeGeneratorPNG::TYPE_CODE_128);
+        $barcode = base64_encode($barcodeImage);
+
+        return view('products.barcode', compact('product', 'barcode'));
     }
 }

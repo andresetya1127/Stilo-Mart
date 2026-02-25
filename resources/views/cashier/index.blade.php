@@ -9,17 +9,17 @@
         <div class="lg:col-span-2 space-y-4">
             <!-- Tabs -->
             <div class="bg-white rounded-xl shadow-sm">
-               <div class="p-4">
-                 <div class="relative">
-                    <input type="text" id="searchInput" placeholder="Cari produk atau jasa..."
-                        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
-                    <svg class="absolute left-3 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor"
-                        viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                    </svg>
+                <div class="p-4">
+                    <div class="relative">
+                        <input type="text" id="searchInput" placeholder="Cari produk atau jasa..."
+                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                        <svg class="absolute left-3 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
                 </div>
-               </div>
                 <div class="border-b border-gray-200">
                     <nav class="flex -mb-px">
                         <button onclick="switchTab('products')" id="productsTab"
@@ -43,7 +43,7 @@
                                     <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}"
                                         class="w-full h-32 object-cover rounded-lg mb-3">
                                 @else
-                                   <img src="{{ asset('logo.png') }}" alt="{{ $product->name }}"
+                                    <img src="{{ asset('logo.png') }}" alt="{{ $product->name }}"
                                         class="w-full h-32 object-cover rounded-lg mb-3">
                                 @endif
                                 <h4 class="font-semibold text-gray-800 text-sm mb-1 truncate">{{ $product->name }}</h4>
@@ -68,7 +68,7 @@
                                     <img src="{{ asset('storage/' . $service->image) }}" alt="{{ $service->name }}"
                                         class="w-full h-32 object-cover rounded-lg mb-3">
                                 @else
-                                     <img src="{{ asset('logo.png') }}" alt="{{ $product->name }}"
+                                    <img src="{{ asset('logo.png') }}" alt="{{ $product->name }}"
                                         class="w-full h-32 object-cover rounded-lg mb-3">
                                 @endif
                                 <h4 class="font-semibold text-gray-800 text-sm mb-1 truncate">{{ $service->name }}</h4>
@@ -86,7 +86,7 @@
 
         <!-- Cart & Checkout -->
         <div class="space-y-4">
-              <!-- Barcode Scanner -->
+            <!-- Barcode Scanner -->
             <div class="bg-white rounded-xl shadow-sm p-4">
                 <div class="relative">
                     <input type="text" id="barcodeInput" placeholder="Scan barcode atau masukkan SKU..."
@@ -152,16 +152,18 @@
                         <select id="paymentMethod"
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
                             <option value="cash">Tunai</option>
+                            <option value="debit">Hutang</option>
                             <option value="card">Kartu</option>
                             <option value="transfer">Transfer</option>
                         </select>
                     </div>
 
-                    <div>
+                    <div id="paidInputContainer">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Jumlah Bayar</label>
                         <input type="text" id="paidAmount"
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                             onchange="calculateChange()" placeholder="Rp 0">
+                        <p id="paidAmountHint" class="text-xs text-gray-500 mt-1 hidden">Kosongkan untuk hutang</p>
                     </div>
 
                     <div class="bg-gray-50 p-3 rounded-lg">
@@ -349,10 +351,12 @@
                 .getElementById('discountInput').value) || 0);
             const paidInput = document.getElementById('paidAmount');
             const paid = parseFloat(paidInput.value.replace(/[^\d]/g, '')) || 0;
-            const change = paid - total;
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            const change = paymentMethod === 'debit' ? 0 : (paid - total);
 
             document.getElementById('changeDisplay').textContent = 'Rp ' + Math.max(0, change).toLocaleString('id-ID');
         }
+
 
         // Clear cart
         function clearCart() {
@@ -398,8 +402,10 @@
             const total = subtotal - discount;
             const paidInput = document.getElementById('paidAmount');
             const paid = parseFloat(paidInput.value.replace(/[^\d]/g, '')) || 0;
+            const paymentMethod = document.getElementById('paymentMethod').value;
 
-            if (paid < total) {
+            // Skip payment validation for debit (hutang) method
+            if (paymentMethod !== 'debit' && paid < total) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Pembayaran Kurang',
@@ -415,9 +421,9 @@
                 tax: 0,
                 discount: discount,
                 total: total,
-                paid: paid,
-                change: paid - total,
-                payment_method: document.getElementById('paymentMethod').value
+                paid: paymentMethod === 'debit' ? 0 : paid,
+                change: paymentMethod === 'debit' ? 0 : (paid - total),
+                payment_method: paymentMethod
             };
 
             try {
@@ -639,7 +645,15 @@
 
         // Rupiah formatting for paid amount
         function formatRupiah(input) {
+            const paymentMethod = document.getElementById('paymentMethod').value;
             let value = input.value.replace(/[^\d]/g, '');
+
+            // Allow empty value for debit method
+            if (value === '' && paymentMethod === 'debit') {
+                input.value = '';
+                return 0;
+            }
+
             if (value === '') {
                 input.value = '';
                 return 0;
@@ -672,6 +686,31 @@
                 const name = card.querySelector('h4').textContent.toLowerCase();
                 card.style.display = name.includes(search) ? 'block' : 'none';
             });
+        });
+
+        // Toggle paid amount input based on payment method
+        function togglePaidAmountInput() {
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            const paidInputContainer = document.getElementById('paidInputContainer');
+            const paidInput = document.getElementById('paidAmount');
+
+            if (paymentMethod === 'debit') {
+                paidInputContainer.classList.add('hidden');
+                paidInput.value = '';
+            } else {
+                paidInputContainer.classList.remove('hidden');
+            }
+        }
+
+        // Add event listener for payment method change
+        document.getElementById('paymentMethod').addEventListener('change', function() {
+            togglePaidAmountInput();
+            calculateChange();
+        });
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            togglePaidAmountInput();
         });
     </script>
 @endsection

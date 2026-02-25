@@ -13,9 +13,8 @@ class TransactionController extends Controller
     public function index(Request $request)
     {
         $query = Transaction::with(['user', 'items.item']);
-
         // Filter by date range
-        if ($request->has('start_date') && $request->has('end_date')) {
+        if (!empty($request->start_date) && !empty($request->end_date)) {
             $query->whereBetween('created_at', [
                 $request->start_date . ' 00:00:00',
                 $request->end_date . ' 23:59:59'
@@ -71,7 +70,7 @@ class TransactionController extends Controller
         $query = Transaction::with(['user', 'items.item']);
 
         // Apply same filters as index
-        if ($request->has('start_date') && $request->has('end_date')) {
+        if (!empty($request->start_date) && !empty($request->end_date)) {
             $query->whereBetween('created_at', [
                 $request->start_date . ' 00:00:00',
                 $request->end_date . ' 23:59:59'
@@ -184,6 +183,39 @@ class TransactionController extends Controller
         $filename = 'laporan-transaksi_' . now()->format('Y-m-d_H-i-s') . '.pdf';
 
         return $pdf->download($filename);
+    }
+
+    public function payDebt(Request $request, Transaction $transaction)
+    {
+        $request->validate([
+            'amount' => 'required|numeric|min:0.01|max:' . $transaction->total,
+        ]);
+
+        // Ensure the transaction is a debit and not already completed
+        if ($transaction->payment_method !== 'debit' || $transaction->status === 'completed') {
+            return response()->json(['success' => false, 'message' => 'Transaksi tidak valid untuk pembayaran hutang.'], 400);
+        }
+
+        $amount = $request->amount;
+
+        // If paying full amount, mark as completed
+        if ($amount >= $transaction->total) {
+            $transaction->update([
+                'payment_method' => 'cash',
+                'paid' => $transaction->total,
+                'change' => 0,
+                'status' => 'completed',
+            ]);
+            $message = 'Hutang berhasil dibayar lunas.';
+        } else {
+            // Partial payment - keep as debit but update paid amount
+            $transaction->update([
+                'paid' => $transaction->paid + $amount,
+            ]);
+            $message = 'Pembayaran sebagian berhasil. Sisa hutang: Rp ' . number_format($transaction->total - $transaction->paid, 0, ',', '.');
+        }
+
+        return response()->json(['success' => true, 'message' => $message]);
     }
 
     public function destroy(Transaction $transaction)

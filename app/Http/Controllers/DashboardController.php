@@ -25,9 +25,16 @@ class DashboardController extends Controller
         // Recent transactions
         $recentTransactions = Transaction::with('user', 'items')
             ->latest()
+            ->where('payment_method', 'cash')
             ->limit(10)
             ->get();
 
+             // Debit transactions
+        $debitTransactions = Transaction::with('user', 'items')
+            ->latest()
+            ->where('payment_method', 'debit')
+            ->limit(10)
+            ->get();
         // Monthly revenue chart data (last 6 months)
         $monthlyRevenue = [];
         for ($i = 5; $i >= 0; $i--) {
@@ -43,6 +50,32 @@ class DashboardController extends Controller
             ];
         }
 
+        // Top selling products (this month)
+        $topSellingProducts = \DB::table('transaction_items')
+            ->join('transactions', 'transaction_items.transaction_id', '=', 'transactions.id')
+            ->where('transaction_items.item_type', 'product')
+            ->where('transactions.status', 'completed')
+            ->whereMonth('transactions.created_at', now()->month)
+            ->whereYear('transactions.created_at', now()->year)
+            ->select('transaction_items.item_name', \DB::raw('SUM(transaction_items.quantity) as total_sold'))
+            ->groupBy('transaction_items.item_id', 'transaction_items.item_name')
+            ->orderBy('total_sold', 'desc')
+            ->limit(10)
+            ->get();
+
+        // Top selling services (this month)
+        $topSellingServices = \DB::table('transaction_items')
+            ->join('transactions', 'transaction_items.transaction_id', '=', 'transactions.id')
+            ->where('transaction_items.item_type', 'service')
+            ->where('transactions.status', 'completed')
+            ->whereMonth('transactions.created_at', now()->month)
+            ->whereYear('transactions.created_at', now()->year)
+            ->select('transaction_items.item_name', \DB::raw('SUM(transaction_items.quantity) as total_sold'))
+            ->groupBy('transaction_items.item_id', 'transaction_items.item_name')
+            ->orderBy('total_sold', 'desc')
+            ->limit(10)
+            ->get();
+
         return view('dashboard.index', compact(
             'totalProducts',
             'totalServices',
@@ -51,7 +84,10 @@ class DashboardController extends Controller
             'monthRevenue',
             'lowStockProducts',
             'recentTransactions',
-            'monthlyRevenue'
+            'debitTransactions',
+            'monthlyRevenue',
+            'topSellingProducts',
+            'topSellingServices'
         ));
     }
 }

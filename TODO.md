@@ -1,8 +1,3 @@
-# TODO: Add PDF Report Feature to Transactions Menu
+# TODO: Fix Duplicate Invoice Number Error
 
-- [x] Install barryvdh/laravel-dompdf package
-- [x] Add PDF route in routes/web.php
-- [x] Add PDF method in TransactionController.php
-- [x] Create PDF view resources/views/transactions/pdf.blade.php
-- [x] Add PDF button in transactions/index.blade.php
-- [x] Test PDF generation with filters
+- [ ] Modify the boot method in app/Models/Transaction.php to generate unique invoice numbers by checking database uniqueness

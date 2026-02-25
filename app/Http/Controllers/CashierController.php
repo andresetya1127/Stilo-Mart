@@ -64,7 +64,7 @@ class CashierController extends Controller
             'total' => 'required|numeric|min:0',
             'paid' => 'required|numeric|min:0',
             'change' => 'required|numeric|min:0',
-            'payment_method' => 'required|in:cash,card,transfer',
+            'payment_method' => 'required|in:cash,card,transfer,debit',
         ]);
 
         DB::beginTransaction();
@@ -77,10 +77,10 @@ class CashierController extends Controller
                 'tax' => $validated['tax'] ?? 0,
                 'discount' => $validated['discount'] ?? 0,
                 'total' => $validated['total'],
-                'paid' => $validated['paid'],
+                'paid' => $validated['paid'] ?? 0,
                 'change' => $validated['change'],
                 'payment_method' => $validated['payment_method'],
-                'status' => 'completed',
+                'status' => $validated['payment_method']=='debit' ? 'pending' : 'completed',
             ]);
 
             // Create transaction items
